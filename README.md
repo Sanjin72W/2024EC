@@ -1,1 +1,1 @@
-2024电赛资源
+2024 National Undergraduate Electronic Design Contest Resources.
