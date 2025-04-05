@@ -2,4 +2,5 @@
 
 2024 National Undergraduate Electronic Design Contest Resources
 
-![Baseline Model Diagram](https://github.com/Sanjin72W/2024EC/blob/main/output.jpg)
+<img src="https://github.com/Sanjin72W/2024EC/blob/main/output.jpg" alt="Baseline Model Diagram" width="100">
+
