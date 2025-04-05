@@ -1,0 +1,100 @@
+#include <msp430.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+// 定义ESP8266串口
+#define ESP_UART_USCI_BASE_ADDR USCI_A0_BASE
+
+// 定义发送和接收缓冲区大小
+#define BUFFER_SIZE 128
+
+// 定义服务器IP地址和端口号
+#define SERVER_IP "172.20.10.2"
+#define SERVER_PORT 8888
+
+// 定义ESP8266发送缓冲区
+char sendBuffer[BUFFER_SIZE];
+// 定义ESP8266接收缓冲区
+char recvBuffer[BUFFER_SIZE];
+
+// 初始化ESP8266串口
+void ESP_UART_Init() {
+    // 配置UART引脚
+    P1SEL |= BIT1 | BIT2;      // P1.1 = RXD, P1.2=TXD
+    P1SEL2 |= BIT1 | BIT2;     // P1.1 = RXD, P1.2=TXD
+
+    // 设置UART参数
+    UCA0CTL1 |= UCSSEL_2;      // 使用SMCLK作为UART时钟源
+    UCA0BR0 = 6;               // 设置波特率为115200
+    UCA0BR1 = 0;
+    UCA0MCTL = UCBRS2 + UCBRS0; // 配置微调参数
+    UCA0CTL1 &= ~UCSWRST;      // 初始化UART
+}
+
+// 发送数据到ESP8266
+void ESP_UART_Send(const char* data) {
+    while (*data != '\0') {
+        while (!(UCA0IFG & UCTXIFG)); // 等待发送缓冲区可用
+        UCA0TXBUF = *data;             // 将数据发送到UART
+        data++;
+    }
+}
+
+// 接收ESP8266数据
+void ESP_UART_Receive() {
+    uint8_t i = 0;
+    while (i < BUFFER_SIZE - 1) {
+        while (!(UCA0IFG & UCRXIFG)); // 等待接收到数据
+        char receivedByte = UCA0RXBUF; // 从UART接收数据
+        if (receivedByte == '\r' || receivedByte == '\n') {
+            break; // 如果接收到换行符或回车符，结束接收
+        }
+        recvBuffer[i] = receivedByte;
+        i++;
+    }
+    recvBuffer[i] = '\0'; // 在接收缓冲区末尾添加字符串结束符
+}
+
+// 连接到服务器
+void ConnectToServer() {
+    sprintf(sendBuffer, "AT+CIPSTART=\"TCP\",\"%s\",%d\r\n", SERVER_IP, SERVER_PORT);
+    ESP_UART_Send(sendBuffer);
+    __delay_cycles(1000000); // 等待一段时间以确保连接成功
+    ESP_UART_Receive();
+}
+
+// 发送数据到服务器
+void SendDataToServer(const char* data) {
+    sprintf(sendBuffer, "AT+CIPSEND=%d\r\n", strlen(data));
+    ESP_UART_Send(sendBuffer);
+    __delay_cycles(1000000); // 等待一段时间以便接收 ">" 符号
+    ESP_UART_Receive();
+
+    ESP_UART_Send(data);
+    __delay_cycles(1000000); // 等待一段时间以确保数据发送完成
+    ESP_UART_Receive();
+}
+
+int main(void) {
+    WDTCTL = WDTPW | WDTHOLD;   // 停用看门狗定时器
+
+    // 初始化MSP430和ESP8266 UART
+    ESP_UART_Init();
+
+    // 连接到服务器
+    ConnectToServer();
+
+    // 循环发送数据到服务器
+    while (1) {
+        // 在这里添加你的代码逻辑
+        // 从传感器或其他来源获取数据
+
+        // 将数据发送到服务器
+        SendDataToServer("Hello Jetson Nano!");
+
+        // 延迟一段时间
+        __delay_cycles(1000000);
+    }
+
+    return 0;
+}
